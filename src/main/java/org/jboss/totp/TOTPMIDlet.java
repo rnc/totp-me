@@ -85,6 +85,7 @@ public class TOTPMIDlet extends MIDlet implements CommandListener {
 	private static final byte[] DEFAULT_SECRET = null;
 	private static final int DEFAULT_DIGITS = 6;
 	private static final int DEFAULT_HMAC_ALG_IDX = 0;
+	private static final String COUNTDOWNSTRING = "..........";
 
 	// GUI components
 	private Command cmdOK = new Command("OK", Command.OK, 1);
@@ -98,6 +99,7 @@ public class TOTPMIDlet extends MIDlet implements CommandListener {
 	private final StringItem siKeyHex = new StringItem("HEX", null);
 	private final StringItem siKeyBase32 = new StringItem("Base32", null);
 	private final StringItem siToken = new StringItem("Token", null);
+	private final StringItem countdown = new StringItem(COUNTDOWNSTRING, null);
 	private final TextField tfSecret = new TextField("Secret key (Base32)", null, 105, TextField.ANY);
 	private final TextField tfTimeStep = new TextField("Time step (sec)", null, 3, TextField.NUMERIC);
 	private final TextField tfDigits = new TextField("Number of digits", null, 2, TextField.NUMERIC);
@@ -115,12 +117,15 @@ public class TOTPMIDlet extends MIDlet implements CommandListener {
 	private HMac hmac;
 	private final Random rand = new Random();
 
-	// Constructors ----------------------------------------------------------
+        private final int countdownPosition;
+
+    // Constructors ----------------------------------------------------------
 
 	public TOTPMIDlet() {
 
 		// Main display
 		fMain.append(siToken);
+		countdownPosition = fMain.append(countdown);
 		fMain.addCommand(cmdExit);
 		fMain.addCommand(cmdOptions);
 		fMain.addCommand(cmdGenerator);
@@ -160,7 +165,6 @@ public class TOTPMIDlet extends MIDlet implements CommandListener {
 	public void startApp() {
 		try {
 			load();
-			timer.schedule(refreshPinTask, 0L, 1000L);
 			final Display display = Display.getDisplay(this);
 			final String secret = tfSecret.getString();
 			if (secret == null || secret.length() == 0) {
@@ -169,6 +173,9 @@ public class TOTPMIDlet extends MIDlet implements CommandListener {
 				// use validation - to check loaded data
 				commandAction(cmdOK, null);
 			}
+			long period = (long) ((Double.parseDouble(tfTimeStep.getString()) / 10.0) * 1000L);
+
+			timer.schedule(refreshPinTask, 0L, period);
 		} catch (Exception e) {
 			debugErr("TOTPMIDlet.startApp() - " + e.getMessage());
 			error(e);
@@ -648,10 +655,19 @@ public class TOTPMIDlet extends MIDlet implements CommandListener {
 	 */
 	private class RefreshPinTask extends TimerTask {
 
+		private int counter = 10;
+
 		public final void run() {
-			final String newToken = genToken();
-			debug(newToken);
-			siToken.setText(newToken);
+			if (counter-- > 0) {
+				fMain.get(countdownPosition).setLabel(
+						fMain.get(countdownPosition).getLabel().substring(1));
+			} else {
+				final String newToken = genToken();
+				debug(newToken);
+				siToken.setText(newToken);
+				counter = 10;
+				fMain.get(countdownPosition).setLabel(COUNTDOWNSTRING);
+			}
 		}
 	}
 }
